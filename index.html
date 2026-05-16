@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FocusFlow — Smart Productivity Timer</title>
+<meta name="description" content="A beautiful Pomodoro productivity app with task management and daily stats.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0b1a;--card:rgba(20,22,45,0.85);--glass:rgba(255,255,255,0.04);--accent:#6c5ce7;--accent2:#a29bfe;--success:#00cec9;--warn:#fdcb6e;--danger:#ff6b6b;--text:#e8e8f0;--text2:#8b8ba3;--border:rgba(255,255,255,0.06);--radius:16px}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at 30% 20%,rgba(108,92,231,0.08) 0%,transparent 50%),radial-gradient(circle at 70% 80%,rgba(0,206,201,0.06) 0%,transparent 50%);z-index:0;pointer-events:none}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 32px;display:flex;align-items:center;justify-content:space-between;background:rgba(10,11,26,0.8);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.logo{font-size:1.4rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--success));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo span{font-weight:400;opacity:0.7}
+nav ul{display:flex;gap:28px;list-style:none}
+nav a{color:var(--text2);text-decoration:none;font-size:0.85rem;font-weight:500;transition:color 0.3s}
+nav a:hover,nav a.active{color:var(--accent2)}
+
+/* LAYOUT */
+.app{display:grid;grid-template-columns:1fr 380px;gap:24px;max-width:1200px;margin:80px auto 40px;padding:24px;position:relative;z-index:1}
+@media(max-width:900px){.app{grid-template-columns:1fr;max-width:600px}}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;backdrop-filter:blur(12px);transition:transform 0.3s,box-shadow 0.3s}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(108,92,231,0.1)}
+.card-title{font-size:0.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);margin-bottom:16px;font-weight:600}
+
+/* TIMER */
+.timer-section{display:flex;flex-direction:column;align-items:center;gap:24px}
+.timer-modes{display:flex;gap:8px;background:var(--glass);border-radius:40px;padding:4px}
+.timer-modes button{padding:8px 20px;border:none;border-radius:36px;background:transparent;color:var(--text2);font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.3s;font-family:inherit}
+.timer-modes button.active{background:var(--accent);color:#fff;box-shadow:0 4px 15px rgba(108,92,231,0.4)}
+.timer-ring{position:relative;width:280px;height:280px}
+.timer-ring svg{transform:rotate(-90deg);width:100%;height:100%}
+.timer-ring .bg{fill:none;stroke:var(--glass);stroke-width:6}
+.timer-ring .progress{fill:none;stroke:url(#timerGrad);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset 0.5s ease}
+.timer-display{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.timer-display .time{font-size:3.8rem;font-weight:800;letter-spacing:-2px;background:linear-gradient(180deg,#fff,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.timer-display .label{font-size:0.75rem;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:2px}
+.timer-controls{display:flex;gap:12px;align-items:center}
+.btn{padding:12px 32px;border:none;border-radius:40px;font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.3s;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;box-shadow:0 4px 20px rgba(108,92,231,0.3)}
+.btn-primary:hover{transform:scale(1.05);box-shadow:0 6px 25px rgba(108,92,231,0.5)}
+.btn-secondary{background:var(--glass);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:rgba(255,255,255,0.08)}
+.btn-icon{width:42px;height:42px;padding:0;border-radius:50%;display:grid;place-items:center;font-size:1.1rem}
+.sessions-count{text-align:center;font-size:0.8rem;color:var(--text2)}
+.sessions-count span{color:var(--accent2);font-weight:700;font-size:1rem}
+
+/* TASKS */
+.task-input-wrap{display:flex;gap:8px;margin-bottom:16px}
+.task-input-wrap input{flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--glass);color:var(--text);font-size:0.85rem;font-family:inherit;outline:none;transition:border-color 0.3s}
+.task-input-wrap input:focus{border-color:var(--accent)}
+.task-input-wrap button{padding:12px 18px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-size:1rem;cursor:pointer;transition:transform 0.2s}
+.task-input-wrap button:hover{transform:scale(1.05)}
+.task-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto}
+.task-list::-webkit-scrollbar{width:4px}
+.task-list::-webkit-scrollbar-thumb{background:var(--accent);border-radius:4px}
+.task-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:var(--glass);border:1px solid var(--border);transition:all 0.3s;animation:slideIn 0.3s ease}
+.task-item:hover{background:rgba(255,255,255,0.06)}
+.task-item.done{opacity:0.5}
+.task-item.done .task-text{text-decoration:line-through}
+.task-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--accent);cursor:pointer;display:grid;place-items:center;flex-shrink:0;transition:all 0.3s}
+.task-check.checked{background:var(--accent);border-color:var(--accent)}
+.task-check.checked::after{content:'✓';color:#fff;font-size:0.7rem}
+.task-text{flex:1;font-size:0.85rem}
+.task-delete{background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.9rem;opacity:0;transition:opacity 0.3s,color 0.3s}
+.task-item:hover .task-delete{opacity:1}
+.task-delete:hover{color:var(--danger)}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.stat-card{padding:16px;border-radius:12px;background:var(--glass);border:1px solid var(--border);text-align:center}
+.stat-val{font-size:1.6rem;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--success));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-label{font-size:0.7rem;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+
+/* CHART */
+.chart-wrap{height:120px;display:flex;align-items:flex-end;gap:6px;padding:8px 0}
+.chart-bar{flex:1;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--accent),rgba(108,92,231,0.2));transition:height 0.5s ease;min-height:4px;position:relative;cursor:pointer}
+.chart-bar:hover{opacity:0.8}
+.chart-bar::after{content:attr(data-label);position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:0.6rem;color:var(--text2)}
+.chart-bar.today{background:linear-gradient(180deg,var(--success),rgba(0,206,201,0.2))}
+
+/* QUOTE */
+.quote-card{margin-top:20px;text-align:center;font-style:italic;color:var(--text2);font-size:0.85rem;line-height:1.6}
+.quote-card .author{color:var(--accent2);font-style:normal;font-weight:600;margin-top:8px;font-size:0.75rem}
+
+/* ANIMATIONS */
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.pulsing{animation:pulse 1s ease-in-out infinite}
+
+/* FOOTER */
+footer{text-align:center;padding:32px;color:var(--text2);font-size:0.75rem;position:relative;z-index:1}
+footer a{color:var(--accent2);text-decoration:none}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">Focus<span>Flow</span></div>
+  <ul>
+    <li><a href="#" class="active">Timer</a></li>
+    <li><a href="#tasks-section">Tasks</a></li>
+    <li><a href="#stats-section">Stats</a></li>
+  </ul>
+</nav>
+
+<div class="app">
+  <div style="display:flex;flex-direction:column;gap:24px">
+    <!-- TIMER CARD -->
+    <div class="card timer-section" id="timer-card">
+      <div class="card-title">⏱ Focus Timer</div>
+      <div class="timer-modes">
+        <button class="active" onclick="setMode('focus')">Focus</button>
+        <button onclick="setMode('short')">Short Break</button>
+        <button onclick="setMode('long')">Long Break</button>
+      </div>
+      <div class="timer-ring">
+        <svg viewBox="0 0 280 280">
+          <defs><linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#6c5ce7"/><stop offset="100%" style="stop-color:#00cec9"/>
+          </linearGradient></defs>
+          <circle class="bg" cx="140" cy="140" r="130"/>
+          <circle class="progress" id="progress" cx="140" cy="140" r="130" stroke-dasharray="816.81" stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-display">
+          <div class="time" id="timer-time">25:00</div>
+          <div class="label" id="timer-label">Focus Time</div>
+        </div>
+      </div>
+      <div class="timer-controls">
+        <button class="btn btn-secondary btn-icon" onclick="resetTimer()" title="Reset">↺</button>
+        <button class="btn btn-primary" id="start-btn" onclick="toggleTimer()">▶ Start</button>
+        <button class="btn btn-secondary btn-icon" onclick="skipTimer()" title="Skip">⏭</button>
+      </div>
+      <div class="sessions-count">Sessions today: <span id="session-count">0</span></div>
+    </div>
+
+    <!-- QUOTE -->
+    <div class="card quote-card" id="quote-card">
+      <div id="quote-text">"The secret of getting ahead is getting started."</div>
+      <div class="author" id="quote-author">— Mark Twain</div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:24px">
+    <!-- TASKS -->
+    <div class="card" id="tasks-section">
+      <div class="card-title">✅ Today's Tasks</div>
+      <div class="task-input-wrap">
+        <input type="text" id="task-input" placeholder="Add a new task..." onkeydown="if(event.key==='Enter')addTask()">
+        <button onclick="addTask()">+</button>
+      </div>
+      <div class="task-list" id="task-list"></div>
+    </div>
+
+    <!-- STATS -->
+    <div class="card" id="stats-section">
+      <div class="card-title">📊 Weekly Overview</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-val" id="total-focus">0h</div><div class="stat-label">Focus Time</div></div>
+        <div class="stat-card"><div class="stat-val" id="total-sessions">0</div><div class="stat-label">Sessions</div></div>
+        <div class="stat-card"><div class="stat-val" id="total-tasks">0</div><div class="stat-label">Tasks Done</div></div>
+        <div class="stat-card"><div class="stat-val" id="streak-count">0</div><div class="stat-label">Day Streak</div></div>
+      </div>
+      <div class="card-title">Daily Sessions</div>
+      <div class="chart-wrap" id="chart"></div>
+    </div>
+  </div>
+</div>
+
+<footer>Built with ❤ by <a href="#">Heena Chauhan</a> · FocusFlow &copy; 2026</footer>
+
+<script>
+// Timer State
+let modes={focus:25*60,short:5*60,long:15*60};
+let currentMode='focus';
+let timeLeft=modes.focus;
+let totalTime=modes.focus;
+let running=false;
+let interval=null;
+let sessions=parseInt(localStorage.getItem('ff_sessions')||'0');
+let tasksCompleted=parseInt(localStorage.getItem('ff_tasksDone')||'0');
+
+// Weekly data
+let weekData=JSON.parse(localStorage.getItem('ff_week')||'[0,0,0,0,0,0,0]');
+const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+const circumference=2*Math.PI*130;
+document.getElementById('progress').style.strokeDasharray=circumference;
+
+function updateDisplay(){
+  let m=Math.floor(timeLeft/60);
+  let s=timeLeft%60;
+  document.getElementById('timer-time').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  let offset=circumference*(1-timeLeft/totalTime);
+  document.getElementById('progress').style.strokeDashoffset=offset;
+}
+
+function setMode(mode){
+  currentMode=mode;
+  timeLeft=modes[mode];
+  totalTime=modes[mode];
+  running=false;
+  clearInterval(interval);
+  document.getElementById('start-btn').innerHTML='▶ Start';
+  document.getElementById('timer-label').textContent=mode==='focus'?'Focus Time':mode==='short'?'Short Break':'Long Break';
+  document.querySelectorAll('.timer-modes button').forEach((b,i)=>{
+    b.classList.toggle('active',['focus','short','long'][i]===mode);
+  });
+  updateDisplay();
+}
+
+function toggleTimer(){
+  if(running){
+    running=false;
+    clearInterval(interval);
+    document.getElementById('start-btn').innerHTML='▶ Resume';
+  }else{
+    running=true;
+    document.getElementById('start-btn').innerHTML='⏸ Pause';
+    interval=setInterval(()=>{
+      timeLeft--;
+      if(timeLeft<=0){
+        clearInterval(interval);
+        running=false;
+        if(currentMode==='focus'){
+          sessions++;
+          localStorage.setItem('ff_sessions',sessions);
+          let today=(new Date().getDay()+6)%7;
+          weekData[today]++;
+          localStorage.setItem('ff_week',JSON.stringify(weekData));
+        }
+        document.getElementById('start-btn').innerHTML='▶ Start';
+        updateStats();
+        playNotification();
+        let next=currentMode==='focus'?(sessions%4===0?'long':'short'):'focus';
+        setTimeout(()=>setMode(next),1000);
+      }
+      updateDisplay();
+    },1000);
+  }
+}
+
+function resetTimer(){setMode(currentMode)}
+function skipTimer(){
+  clearInterval(interval);running=false;
+  let next=currentMode==='focus'?(sessions%4===0?'long':'short'):'focus';
+  setMode(next);
+}
+
+function playNotification(){
+  try{
+    let ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [440,554,659].forEach((f,i)=>{
+      let o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=f;o.type='sine';
+      g.gain.setValueAtTime(0.15,ctx.currentTime+i*0.2);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*0.2+0.4);
+      o.start(ctx.currentTime+i*0.2);o.stop(ctx.currentTime+i*0.2+0.4);
+    });
+  }catch(e){}
+}
+
+// Tasks
+let tasks=JSON.parse(localStorage.getItem('ff_tasks')||'[]');
+function renderTasks(){
+  let list=document.getElementById('task-list');
+  list.innerHTML=tasks.map((t,i)=>`
+    <div class="task-item ${t.done?'done':''}">
+      <div class="task-check ${t.done?'checked':''}" onclick="toggleTask(${i})"></div>
+      <div class="task-text">${t.text}</div>
+      <button class="task-delete" onclick="deleteTask(${i})">✕</button>
+    </div>`).join('');
+}
+function addTask(){
+  let input=document.getElementById('task-input');
+  let text=input.value.trim();
+  if(!text)return;
+  tasks.unshift({text,done:false});
+  localStorage.setItem('ff_tasks',JSON.stringify(tasks));
+  input.value='';
+  renderTasks();
+}
+function toggleTask(i){
+  tasks[i].done=!tasks[i].done;
+  if(tasks[i].done){tasksCompleted++;localStorage.setItem('ff_tasksDone',tasksCompleted)}
+  localStorage.setItem('ff_tasks',JSON.stringify(tasks));
+  renderTasks();updateStats();
+}
+function deleteTask(i){
+  tasks.splice(i,1);
+  localStorage.setItem('ff_tasks',JSON.stringify(tasks));
+  renderTasks();
+}
+
+// Stats
+function updateStats(){
+  document.getElementById('session-count').textContent=sessions;
+  let totalMin=sessions*25;
+  document.getElementById('total-focus').textContent=totalMin>=60?`${(totalMin/60).toFixed(1)}h`:`${totalMin}m`;
+  document.getElementById('total-sessions').textContent=sessions;
+  document.getElementById('total-tasks').textContent=tasksCompleted;
+  let streak=0;
+  for(let i=weekData.length-1;i>=0;i--){if(weekData[i]>0)streak++;else break}
+  document.getElementById('streak-count').textContent=streak;
+  renderChart();
+}
+
+function renderChart(){
+  let max=Math.max(...weekData,1);
+  let today=(new Date().getDay()+6)%7;
+  document.getElementById('chart').innerHTML=weekData.map((v,i)=>
+    `<div class="chart-bar ${i===today?'today':''}" style="height:${Math.max((v/max)*100,4)}%" data-label="${days[i]}"></div>`
+  ).join('');
+}
+
+// Quotes
+const quotes=[
+  {t:"The secret of getting ahead is getting started.",a:"Mark Twain"},
+  {t:"Focus on being productive instead of busy.",a:"Tim Ferriss"},
+  {t:"It's not that I'm so smart, it's just that I stay with problems longer.",a:"Albert Einstein"},
+  {t:"The only way to do great work is to love what you do.",a:"Steve Jobs"},
+  {t:"Do the hard jobs first. The easy jobs will take care of themselves.",a:"Dale Carnegie"},
+  {t:"Amateurs sit and wait for inspiration, the rest get up and go to work.",a:"Stephen King"},
+  {t:"Don't count the days, make the days count.",a:"Muhammad Ali"},
+];
+function setQuote(){
+  let q=quotes[Math.floor(Math.random()*quotes.length)];
+  document.getElementById('quote-text').textContent=`"${q.t}"`;
+  document.getElementById('quote-author').textContent=`— ${q.a}`;
+}
+
+// Init
+updateDisplay();renderTasks();updateStats();setQuote();
+</script>
+</body>
+</html>
